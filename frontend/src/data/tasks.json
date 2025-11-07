@@ -1,0 +1,12 @@
+{
+  "name": "Work Tasks",
+  "columns": [
+    { "name": "Task", "type": "text" },
+    { "name": "Status", "type": "options", "options": ["In Progress", "Completed"] },
+    { "name": "Priority", "type": "options", "options": ["High", "Medium", "Low"] },
+    { "name": "Due Date", "type": "date" }
+  ],
+  "values": [
+    ["Rhodnet-Face Emb Project", "In Progress", "High", "2025-10-30"]
+  ]
+}
