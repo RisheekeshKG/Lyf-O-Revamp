@@ -9,6 +9,8 @@ import {
   Inbox,
   Plus,
   Trash2,
+  Check,
+  Edit3,
 } from "lucide-react";
 
 const HomePage: React.FC = () => {
@@ -20,8 +22,9 @@ const HomePage: React.FC = () => {
     const loadData = async () => {
       const modules = import.meta.glob("@/data/*.json", { eager: true });
       const files = Object.entries(modules).map(([path, content]) => {
-        const name = path.split("/").pop()?.replace(".json", "") || "Untitled";
-        return { name, file: path, data: content as any };
+        const data = content as any;
+        const name = data.name || path.split("/").pop()?.replace(".json", "");
+        return { name, file: path, data };
       });
       setDataFiles(files);
     };
@@ -30,7 +33,7 @@ const HomePage: React.FC = () => {
 
   const activeData = dataFiles[activeIndex]?.data;
 
-  // 🔹 Update specific cell
+  // 🔹 Update specific cell (table only)
   const handleValueChange = (rowIndex: number, colIndex: number, newValue: string) => {
     const updated = { ...activeData };
     updated.values[rowIndex][colIndex] = newValue;
@@ -61,13 +64,178 @@ const HomePage: React.FC = () => {
     setDataFiles(newFiles);
   };
 
+  // 🔹 TodoList actions
+  const handleToggleTodo = (index: number) => {
+    const updated = { ...activeData };
+    updated.items[index].done = !updated.items[index].done;
+
+    const newFiles = [...dataFiles];
+    newFiles[activeIndex].data = updated;
+    setDataFiles(newFiles);
+  };
+
+  const handleEditTodo = (index: number, newText: string) => {
+    const updated = { ...activeData };
+    updated.items[index].task = newText;
+
+    const newFiles = [...dataFiles];
+    newFiles[activeIndex].data = updated;
+    setDataFiles(newFiles);
+  };
+
+  const handleAddTodo = () => {
+    const updated = { ...activeData };
+    updated.items.push({ task: "", done: false });
+
+    const newFiles = [...dataFiles];
+    newFiles[activeIndex].data = updated;
+    setDataFiles(newFiles);
+  };
+
+  const handleDeleteTodo = (index: number) => {
+    const updated = { ...activeData };
+    updated.items.splice(index, 1);
+
+    const newFiles = [...dataFiles];
+    newFiles[activeIndex].data = updated;
+    setDataFiles(newFiles);
+  };
+
+  // 🔸 Table Renderer
+  const renderTable = () => (
+    <>
+      <header className="border-b border-gray-700 p-4 flex items-center justify-between">
+        <h1 className="text-xl font-semibold flex items-center gap-2">
+          <Briefcase size={20} /> {activeData.name}
+        </h1>
+        <button
+          onClick={handleAddRow}
+          className="flex items-center gap-2 bg-blue-600 px-3 py-1.5 rounded-md text-sm hover:bg-blue-700"
+        >
+          <Plus size={16} /> Add Row
+        </button>
+      </header>
+
+      <div className="flex-1 overflow-auto p-6">
+        <table className="w-full text-left border-collapse">
+          <thead className="border-b border-gray-700 text-gray-400 text-sm">
+            <tr>
+              {activeData.columns.map((col: any, idx: number) => (
+                <th key={idx} className="pb-3">
+                  {col.name}
+                </th>
+              ))}
+              <th className="pb-3 text-center">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody className="text-sm">
+            {activeData.values.map((row: any[], rowIndex: number) => (
+              <tr key={rowIndex} className="border-b border-gray-800 hover:bg-[#222] transition">
+                {row.map((value, colIndex) => {
+                  const col = activeData.columns[colIndex];
+                  switch (col.type) {
+                    case "options":
+                      return (
+                        <td key={colIndex} className="py-3">
+                          <EditableOptionCell
+                            value={value}
+                            options={col.options || []}
+                            onChange={(v) => handleValueChange(rowIndex, colIndex, v)}
+                          />
+                        </td>
+                      );
+                    case "date":
+                      return (
+                        <td key={colIndex} className="py-3">
+                          <EditableDateCell
+                            value={value}
+                            onChange={(v) => handleValueChange(rowIndex, colIndex, v)}
+                          />
+                        </td>
+                      );
+                    default:
+                      return (
+                        <td key={colIndex} className="py-3">
+                          <EditableTextCell
+                            value={value}
+                            onChange={(v) => handleValueChange(rowIndex, colIndex, v)}
+                          />
+                        </td>
+                      );
+                  }
+                })}
+                <td className="text-center">
+                  <button
+                    onClick={() => handleDeleteRow(rowIndex)}
+                    className="text-red-500 hover:text-red-400"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+
+  // 🔸 TodoList Renderer
+  const renderTodoList = () => (
+    <>
+      <header className="border-b border-gray-700 p-4 flex items-center justify-between">
+        <h1 className="text-xl font-semibold flex items-center gap-2">
+          <ListTodo size={20} /> {activeData.name}
+        </h1>
+        <button
+          onClick={handleAddTodo}
+          className="flex items-center gap-2 bg-blue-600 px-3 py-1.5 rounded-md text-sm hover:bg-blue-700"
+        >
+          <Plus size={16} /> Add Task
+        </button>
+      </header>
+
+      <div className="p-6 space-y-3 overflow-auto flex-1">
+        {activeData.items.map((item: any, index: number) => (
+          <div
+            key={index}
+            className="flex justify-between items-center bg-[#1f1f1f] p-3 rounded-lg border border-gray-700"
+          >
+            <div className="flex items-center gap-3 w-full">
+              <button
+                onClick={() => handleToggleTodo(index)}
+                className={`w-6 h-6 rounded-md border flex items-center justify-center ${
+                  item.done ? "bg-green-600 border-green-600" : "border-gray-600"
+                }`}
+              >
+                {item.done && <Check size={14} />}
+              </button>
+
+              <EditableTextCell
+                value={item.task}
+                onChange={(v) => handleEditTodo(index, v)}
+              />
+            </div>
+
+            <button
+              onClick={() => handleDeleteTodo(index)}
+              className="text-red-500 hover:text-red-400"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
   return (
     <div className="flex h-screen bg-[#191919] text-gray-200 font-sans">
       {/* Sidebar */}
       <aside className="w-60 bg-[#1f1f1f] border-r border-gray-700 flex flex-col justify-between">
         <div>
           <div className="p-4 text-lg font-semibold">Risheekesh K G’s Space</div>
-
           <nav className="flex flex-col gap-1 px-3">
             <SidebarItem icon={<Search size={18} />} text="Search" />
             <SidebarItem icon={<HomeIcon size={18} />} text="Home" />
@@ -98,91 +266,15 @@ const HomePage: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
         {activeData ? (
-          <>
-            <header className="border-b border-gray-700 p-4 flex items-center justify-between">
-              <h1 className="text-xl font-semibold flex items-center gap-2">
-                <Briefcase size={20} /> {activeData.name || dataFiles[activeIndex].name}
-              </h1>
-              <button
-                onClick={handleAddRow}
-                className="flex items-center gap-2 bg-blue-600 px-3 py-1.5 rounded-md text-sm hover:bg-blue-700"
-              >
-                <Plus size={16} /> Add Row
-              </button>
-            </header>
-
-            <div className="flex-1 overflow-auto p-6">
-              <table className="w-full text-left border-collapse">
-                <thead className="border-b border-gray-700 text-gray-400 text-sm">
-                  <tr>
-                    {activeData.columns.map((col: any, idx: number) => (
-                      <th key={idx} className="pb-3">
-                        {col.name}
-                      </th>
-                    ))}
-                    <th className="pb-3 text-center">Actions</th>
-                  </tr>
-                </thead>
-
-                <tbody className="text-sm">
-                  {activeData.values.map((row: any[], rowIndex: number) => (
-                    <tr
-                      key={rowIndex}
-                      className="border-b border-gray-800 hover:bg-[#222] transition"
-                    >
-                      {row.map((value, colIndex) => {
-                        const col = activeData.columns[colIndex];
-                        switch (col.type) {
-                          case "options":
-                            return (
-                              <td key={colIndex} className="py-3">
-                                <EditableOptionCell
-                                  value={value}
-                                  options={col.options || []}
-                                  onChange={(v) =>
-                                    handleValueChange(rowIndex, colIndex, v)
-                                  }
-                                />
-                              </td>
-                            );
-                          case "date":
-                            return (
-                              <td key={colIndex} className="py-3">
-                                <EditableDateCell
-                                  value={value}
-                                  onChange={(v) =>
-                                    handleValueChange(rowIndex, colIndex, v)
-                                  }
-                                />
-                              </td>
-                            );
-                          default:
-                            return (
-                              <td key={colIndex} className="py-3">
-                                <EditableTextCell
-                                  value={value}
-                                  onChange={(v) =>
-                                    handleValueChange(rowIndex, colIndex, v)
-                                  }
-                                />
-                              </td>
-                            );
-                        }
-                      })}
-                      <td className="text-center">
-                        <button
-                          onClick={() => handleDeleteRow(rowIndex)}
-                          className="text-red-500 hover:text-red-400"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          activeData.type === "table" ? (
+            renderTable()
+          ) : activeData.type === "todolist" ? (
+            renderTodoList()
+          ) : (
+            <div className="flex items-center justify-center flex-1 text-gray-400">
+              Unsupported file type: <span className="ml-2 font-semibold">{activeData.type}</span>
             </div>
-          </>
+          )
         ) : (
           <div className="flex items-center justify-center flex-1 text-gray-500">
             Loading data...
@@ -194,7 +286,7 @@ const HomePage: React.FC = () => {
 };
 
 //
-// Editable Components
+// Editable components
 //
 const EditableTextCell = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
   const [editing, setEditing] = useState(false);
@@ -212,7 +304,7 @@ const EditableTextCell = ({ value, onChange }: { value: string; onChange: (v: st
       autoFocus
     />
   ) : (
-    <span onClick={() => setEditing(true)} className="cursor-text hover:underline">
+    <span onClick={() => setEditing(true)} className="cursor-text hover:underline w-full block">
       {value || "—"}
     </span>
   );
@@ -281,13 +373,7 @@ const EditableOptionCell = ({
   );
 };
 
-const SidebarItem = ({
-  icon,
-  text,
-  badge,
-  active,
-  onClick,
-}: {
+const SidebarItem = (props: {
   icon: React.ReactNode;
   text: string;
   badge?: string;
@@ -295,16 +381,18 @@ const SidebarItem = ({
   onClick?: () => void;
 }) => (
   <div
-    onClick={onClick}
+    onClick={props.onClick}
     className={`flex justify-between items-center px-3 py-2 rounded-md cursor-pointer ${
-      active ? "bg-[#2b2b2b] text-white" : "hover:bg-[#2b2b2b]"
+      props.active ? "bg-[#2b2b2b] text-white" : "hover:bg-[#2b2b2b]"
     }`}
   >
     <div className="flex items-center gap-2">
-      {icon}
-      <span className="text-sm">{text}</span>
+      {props.icon}
+      <span className="text-sm">{props.text}</span>
     </div>
-    {badge && <span className="text-xs bg-blue-700 px-1.5 py-0.5 rounded-md">{badge}</span>}
+    {props.badge && (
+      <span className="text-xs bg-blue-700 px-1.5 py-0.5 rounded-md">{props.badge}</span>
+    )}
   </div>
 );
 

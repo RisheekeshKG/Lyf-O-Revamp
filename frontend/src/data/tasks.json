@@ -1,5 +1,6 @@
 {
   "name": "Work Tasks",
+  "type": "table",
   "columns": [
     { "name": "Task", "type": "text" },
     { "name": "Status", "type": "options", "options": ["In Progress", "Completed"] },

@@ -1,0 +1,9 @@
+{
+  "name": "Personal Tasks",
+  "type": "todolist",
+  "items": [
+    { "task": "Finish Machine Learning report", "done": false },
+    { "task": "Practice LeetCode", "done": true },
+    { "task": "Call mom", "done": false }
+  ]
+}
