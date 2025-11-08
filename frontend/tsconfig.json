@@ -1,25 +1,38 @@
 {
   "compilerOptions": {
+    /* ✅ Target modern JS (Electron uses Node 18+, so ES2020+ is fine) */
     "target": "ES2020",
-    "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "skipLibCheck": true,
-
-    /* Bundler mode */
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
+
+    /* ✅ React 18 JSX transform */
     "jsx": "react-jsx",
 
-    /* Linting */
+    /* ✅ Needed for Electron + Vite */
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    /* ✅ Stricter type safety */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* ✅ Optional: helps TS understand import paths like "@/components" */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
-  "include": ["src", "electron"],
+
+  /* ✅ Include both renderer & Electron folders */
+  "include": ["src", "electron", "vite.config.ts"],
+
+  /* ✅ Optional reference (only if you have tsconfig.node.json) */
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -4,16 +4,6 @@ import { TableView } from "./components/TableView";
 import { TodoListView } from "./components/TodoListView";
 import { ChatView } from "./components/ChatView";
 
-declare global {
-  interface Window {
-    electron: {
-      ipcRenderer: {
-        invoke(channel: string, ...args: any[]): Promise<any>;
-      };
-    };
-  }
-}
-
 interface ChatMessage {
   sender: "user" | "ai";
   text: string;
@@ -33,16 +23,27 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeData, setActiveData] = useState<any>(null);
 
-  // ✅ Load JSON files once on startup
+  // ✅ Load JSON files on startup
   useEffect(() => {
     const loadData = async () => {
       try {
-        const files: string[] = await window.electron.ipcRenderer.invoke("readDir");
+        // Wait for preload to inject
+        for (let i = 0; i < 20 && !window.electronAPI; i++) {
+          await new Promise((r) => setTimeout(r, 50));
+        }
+
+        if (!window.electronAPI) {
+          console.warn("⚠️ electronAPI not found — preload may not be loaded");
+          setLoading(false);
+          return;
+        }
+
+        const files: string[] = await window.electronAPI.invoke("readDir");
         const jsonFiles = files.filter((f) => f.endsWith(".json"));
         const loaded: DataFile[] = [];
 
         for (const file of jsonFiles) {
-          const data = await window.electron.ipcRenderer.invoke("readFile", file);
+          const data = await window.electronAPI.invoke("readFile", file);
           if (data && data.type) {
             loaded.push({
               name: data.name || file.replace(".json", ""),
@@ -69,11 +70,8 @@ const HomePage: React.FC = () => {
   // ✅ Save file helper (no reload)
   const saveFile = useCallback(async (file: string, data: any) => {
     try {
-      await window.electron.ipcRenderer.invoke(
-        "writeFile",
-        file,
-        JSON.stringify(data, null, 2)
-      );
+      if (!window.electronAPI) return;
+      await window.electronAPI.invoke("writeFile", file, JSON.stringify(data, null, 2));
       console.log("💾 Saved:", file);
     } catch (e) {
       console.error("❌ Save failed:", e);
@@ -93,7 +91,6 @@ const HomePage: React.FC = () => {
     const updatedFiles = [...dataFiles];
     updatedFiles[activeIndex] = { ...updatedFiles[activeIndex], data: newData };
     setDataFiles(updatedFiles);
-
     saveFile(updatedFiles[activeIndex].file, newData);
   };
 
@@ -101,7 +98,6 @@ const HomePage: React.FC = () => {
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
 
-    // Add user message immediately
     const userMessage: ChatMessage = { sender: "user", text: message };
     setChatMessages((prev) => [...prev, userMessage]);
 
@@ -112,15 +108,10 @@ const HomePage: React.FC = () => {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({
-          content: message,
-          role: "user",
-        }),
+        body: JSON.stringify({ content: message, role: "user" }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
 
       const data = await response.json();
       const aiMessage: ChatMessage = {
@@ -209,10 +200,7 @@ const HomePage: React.FC = () => {
 
       <main className="flex-1 flex flex-col overflow-y-auto scroll-smooth">
         {activeView === "chat" ? (
-          <ChatView
-            messages={chatMessages}
-            onSendMessage={handleSendMessage}
-          />
+          <ChatView messages={chatMessages} onSendMessage={handleSendMessage} />
         ) : activeData.type === "table" ? (
           <TableView
             data={activeData}
