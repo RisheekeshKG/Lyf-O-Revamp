@@ -23,49 +23,56 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeData, setActiveData] = useState<any>(null);
 
-  // ✅ Load JSON files on startup
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Wait for preload to inject
-        for (let i = 0; i < 20 && !window.electronAPI; i++) {
-          await new Promise((r) => setTimeout(r, 50));
-        }
-
-        if (!window.electronAPI) {
-          console.warn("⚠️ electronAPI not found — preload may not be loaded");
-          setLoading(false);
-          return;
-        }
-
-        const files: string[] = await window.electronAPI.invoke("readDir");
-        const jsonFiles = files.filter((f) => f.endsWith(".json"));
-        const loaded: DataFile[] = [];
-
-        for (const file of jsonFiles) {
-          const data = await window.electronAPI.invoke("readFile", file);
-          if (data && data.type) {
-            loaded.push({
-              name: data.name || file.replace(".json", ""),
-              file,
-              data,
-            });
-          }
-        }
-
-        setDataFiles(loaded);
-        if (loaded.length > 0) {
-          setActiveIndex(0);
-          setActiveData(loaded[0].data);
-        }
-      } catch (error) {
-        console.error("❌ Error loading JSON:", error);
-      } finally {
-        setLoading(false);
+  // ✅ Reusable loader to fetch /data files
+  const loadDataFiles = useCallback(async () => {
+    try {
+      // Wait for preload (in case of slow startup)
+      for (let i = 0; i < 20 && !window.electronAPI; i++) {
+        await new Promise((r) => setTimeout(r, 50));
       }
-    };
-    loadData();
+
+      if (!window.electronAPI) {
+        console.warn("⚠️ electronAPI not found — preload may not be loaded");
+        setLoading(false);
+        return;
+      }
+
+      console.log("📂 Loading JSON files from /data...");
+      const files: string[] = await window.electronAPI.invoke("readDir");
+      const jsonFiles = files.filter((f) => f.endsWith(".json"));
+      console.log("📄 Found JSON files:", jsonFiles);
+
+      const loaded: DataFile[] = [];
+
+      for (const file of jsonFiles) {
+        const data = await window.electronAPI.invoke("readFile", file);
+        if (data) {
+          loaded.push({
+            name: data.name || file.replace(".json", ""),
+            file,
+            data,
+          });
+        }
+      }
+
+      setDataFiles(loaded);
+      if (loaded.length > 0) {
+        setActiveIndex(0);
+        setActiveData(loaded[0].data);
+      } else {
+        setActiveData(null);
+      }
+    } catch (error) {
+      console.error("❌ Error loading JSON:", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // ✅ Load on startup
+  useEffect(() => {
+    loadDataFiles();
+  }, [loadDataFiles]);
 
   // ✅ Save file helper (no reload)
   const saveFile = useCallback(async (file: string, data: any) => {
@@ -196,6 +203,7 @@ const HomePage: React.FC = () => {
         activeView={activeView}
         onFileSelect={handleFileSelect}
         onViewChange={setActiveView}
+        onReload={loadDataFiles} // ✅ <—— refresh handler
       />
 
       <main className="flex-1 flex flex-col overflow-y-auto scroll-smooth">
