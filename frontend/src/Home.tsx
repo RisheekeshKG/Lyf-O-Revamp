@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Sidebar } from "./components/Sidebar";
+import { FileModal } from "./components/FileModal";
 import { TableView } from "./components/TableView";
 import { TodoListView } from "./components/TodoListView";
 import { ChatView } from "./components/ChatView";
@@ -17,33 +18,32 @@ interface DataFile {
 
 const HomePage: React.FC = () => {
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<"data" | "chat">("data");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeData, setActiveData] = useState<any>(null);
+  const [showModal, setShowModal] = useState(false);
 
-  // ✅ Reusable loader to fetch /data files
+  // ✅ Load all JSON files in /data
   const loadDataFiles = useCallback(async () => {
     try {
-      // Wait for preload (in case of slow startup)
       for (let i = 0; i < 20 && !window.electronAPI; i++) {
         await new Promise((r) => setTimeout(r, 50));
       }
 
       if (!window.electronAPI) {
-        console.warn("⚠️ electronAPI not found — preload may not be loaded");
+        console.warn("⚠️ electronAPI not found — preload not loaded");
         setLoading(false);
         return;
       }
 
-      console.log("📂 Loading JSON files from /data...");
+      console.log("📂 Fetching files from /data...");
       const files: string[] = await window.electronAPI.invoke("readDir");
       const jsonFiles = files.filter((f) => f.endsWith(".json"));
-      console.log("📄 Found JSON files:", jsonFiles);
+      console.log("📄 Found:", jsonFiles);
 
       const loaded: DataFile[] = [];
-
       for (const file of jsonFiles) {
         const data = await window.electronAPI.invoke("readFile", file);
         if (data) {
@@ -56,81 +56,136 @@ const HomePage: React.FC = () => {
       }
 
       setDataFiles(loaded);
+
+      // Reset active selection safely
       if (loaded.length > 0) {
         setActiveIndex(0);
         setActiveData(loaded[0].data);
       } else {
+        setActiveIndex(null);
         setActiveData(null);
       }
-    } catch (error) {
-      console.error("❌ Error loading JSON:", error);
+    } catch (err) {
+      console.error("❌ Error loading JSON files:", err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ✅ Load on startup
   useEffect(() => {
     loadDataFiles();
   }, [loadDataFiles]);
 
-  // ✅ Save file helper (no reload)
+  // ✅ Save file helper
   const saveFile = useCallback(async (file: string, data: any) => {
     try {
       if (!window.electronAPI) return;
-      await window.electronAPI.invoke("writeFile", file, JSON.stringify(data, null, 2));
+      await window.electronAPI.invoke(
+        "writeFile",
+        file,
+        JSON.stringify(data, null, 2)
+      );
       console.log("💾 Saved:", file);
     } catch (e) {
       console.error("❌ Save failed:", e);
     }
   }, []);
 
-  // ✅ File switching
+  // ✅ File selection
   const handleFileSelect = (index: number) => {
     setActiveIndex(index);
     setActiveData(dataFiles[index].data);
     setActiveView("data");
   };
 
-  // ✅ Data updating
-  const updateActiveData = (newData: any) => {
-    setActiveData(newData);
-    const updatedFiles = [...dataFiles];
-    updatedFiles[activeIndex] = { ...updatedFiles[activeIndex], data: newData };
-    setDataFiles(updatedFiles);
-    saveFile(updatedFiles[activeIndex].file, newData);
+  // ✅ Delete file
+  const handleDeleteFile = async (file: string) => {
+    if (!window.confirm(`🗑️ Delete "${file}" permanently?`)) return;
+    try {
+      console.log("🧭 Requesting deletion for:", file);
+      const result = await window.electronAPI.invoke("deleteFile", file);
+      console.log("🧾 deleteFile result:", result);
+
+      if (result?.success) {
+        console.log("🗑️ File deleted:", file);
+        await loadDataFiles();
+
+        // If the deleted file was active, clear state
+        if (dataFiles[activeIndex!]?.file === file) {
+          setActiveIndex(null);
+          setActiveData(null);
+        }
+      } else {
+        alert("❌ Failed to delete file: " + (result?.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("❌ Delete failed:", err);
+    }
   };
 
-  // ✅ Chat handler
+  // ✅ Update and persist file data
+  const updateActiveData = (newData: any) => {
+    if (activeIndex === null) return;
+    setActiveData(newData);
+    const updated = [...dataFiles];
+    updated[activeIndex] = { ...updated[activeIndex], data: newData };
+    setDataFiles(updated);
+    saveFile(updated[activeIndex].file, newData);
+  };
+
+  // ✅ Chat handler (normal + MCP tool mode)
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
 
-    const userMessage: ChatMessage = { sender: "user", text: message };
-    setChatMessages((prev) => [...prev, userMessage]);
+    setChatMessages((prev) => [...prev, { sender: "user", text: message }]);
 
     try {
-      const response = await fetch("http://localhost:8000/chat/chat", {
+      const res = await fetch("http://localhost:8000/chat/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: message, role: "user" }),
       });
 
-      if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+      if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
+      const data = await res.json();
+      console.log("🤖 AI Response:", data);
 
-      const data = await response.json();
-      const aiMessage: ChatMessage = {
-        sender: "ai",
-        text: data.generated_text || "⚙️ No response received.",
-      };
-      setChatMessages((prev) => [...prev, aiMessage]);
-    } catch (error: any) {
-      console.error("Chat error:", error);
+      // === If AI returns a JSON for new file (tool mode)
+      if (data.mode === "tool" && data.result?.content) {
+        const jsonData = data.result.content;
+        const fileName = `${jsonData.name
+          .toLowerCase()
+          .replace(/\s+/g, "_")}.json`;
+
+        console.log("🧩 Creating new AI file:", fileName);
+        await window.electronAPI.invoke(
+          "writeFile",
+          fileName,
+          JSON.stringify(jsonData, null, 2)
+        );
+
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            sender: "ai",
+            text: `✅ Created new file "${jsonData.name}" (${jsonData.type})`,
+          },
+        ]);
+
+        await loadDataFiles();
+        setActiveView("data");
+        return;
+      }
+
+      // === Normal chat reply
+      const aiMessage =
+        data.generated_text || data.result || "⚙️ No response received.";
+      setChatMessages((prev) => [...prev, { sender: "ai", text: aiMessage }]);
+    } catch (err: any) {
+      console.error("❌ Chat error:", err);
       setChatMessages((prev) => [
         ...prev,
-        { sender: "ai", text: `❌ Error: ${error.message}` },
+        { sender: "ai", text: `❌ Error: ${err.message}` },
       ]);
     }
   };
@@ -178,36 +233,32 @@ const HomePage: React.FC = () => {
     updateActiveData({ ...activeData, items: newItems });
   };
 
-  // === Render ===
-  if (loading) {
+  // === Render states ===
+  if (loading)
     return (
       <div className="flex items-center justify-center h-screen bg-[#191919] text-gray-400">
         Loading JSON files...
       </div>
     );
-  }
-
-  if (!activeData) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-[#191919] text-gray-400">
-        No JSON file found in /data
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen bg-[#191919] text-gray-200 font-sans overflow-hidden">
       <Sidebar
         dataFiles={dataFiles}
-        activeIndex={activeIndex}
+        activeIndex={activeIndex ?? -1}
         activeView={activeView}
         onFileSelect={handleFileSelect}
         onViewChange={setActiveView}
-        onReload={loadDataFiles} // ✅ <—— refresh handler
+        onCreateNew={() => setShowModal(true)}
+        onDeleteFile={handleDeleteFile}
       />
 
       <main className="flex-1 flex flex-col overflow-y-auto scroll-smooth">
-        {activeView === "chat" ? (
+        {!activeData ? (
+          <div className="flex items-center justify-center flex-1 text-gray-400">
+            No JSON file found in /data
+          </div>
+        ) : activeView === "chat" ? (
           <ChatView messages={chatMessages} onSendMessage={handleSendMessage} />
         ) : activeData.type === "table" ? (
           <TableView
@@ -230,6 +281,16 @@ const HomePage: React.FC = () => {
           </div>
         )}
       </main>
+
+      {showModal && (
+        <FileModal
+          onClose={() => setShowModal(false)}
+          onCreated={() => {
+            setShowModal(false);
+            loadDataFiles();
+          }}
+        />
+      )}
     </div>
   );
 };

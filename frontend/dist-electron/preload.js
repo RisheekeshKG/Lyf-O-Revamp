@@ -1,7 +1,7 @@
 "use strict";
 const electron = require("electron");
 console.log("🔌 [Preload] Script loaded. Injecting APIs...");
-const validInvokes = ["readDir", "readFile", "writeFile"];
+const validInvokes = ["readDir", "readFile", "writeFile", "deleteFile"];
 console.log("📡 [Preload] Allowed IPC channels:", validInvokes);
 electron.contextBridge.exposeInMainWorld("electronAPI", {
   // ---- invoke ----

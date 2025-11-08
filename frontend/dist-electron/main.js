@@ -43,11 +43,8 @@ async function ensureDataDir() {
 function resolvePreloadPath() {
   const possiblePaths = [
     path.join(__dirname, "preload.js"),
-    // when built together
     path.join(__dirname, "../dist-electron/preload.js"),
-    // fallback (backend style)
     path.join(__dirname, "../../frontend/dist-electron/preload.js")
-    // actual dev path
   ];
   console.log("🧭 Checking preload paths:");
   possiblePaths.forEach((p) => {
@@ -151,6 +148,24 @@ ipcMain.handle("writeFile", async (_event, filename, content) => {
   } catch (error) {
     console.error(`❌ Error writing file ${filename}:`, error);
     throw error;
+  }
+});
+ipcMain.handle("deleteFile", async (_event, filename) => {
+  console.log("🗑️ IPC → deleteFile called:", filename);
+  try {
+    const safeName = path.basename(filename);
+    const filePath = path.join(DATA_DIR, safeName);
+    if (fsSync.existsSync(filePath)) {
+      await fs.unlink(filePath);
+      console.log(`✅ File deleted: ${filePath}`);
+      return { success: true };
+    } else {
+      console.warn(`⚠️ File not found: ${filePath}`);
+      return { success: false, error: "File not found" };
+    }
+  } catch (error) {
+    console.error(`❌ Error deleting file ${filename}:`, error);
+    return { success: false, error: error.message };
   }
 });
 export {
