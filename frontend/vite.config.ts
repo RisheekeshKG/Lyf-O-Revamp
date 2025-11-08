@@ -18,27 +18,36 @@ export default defineConfig({
     }),
   ],
 
-  // ✅ Resolve aliases for clean imports
+  // ✅ Clean imports
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
     },
   },
 
-  // ✅ Tailwind + PostCSS setup
+  // ✅ Tailwind + PostCSS
   css: {
     postcss: path.resolve(__dirname, "postcss.config.cjs"),
   },
 
-  // ✅ Output and server config
+  // ✅ Output and build config
   build: {
     outDir: "dist",
     emptyOutDir: true,
   },
 
+  // ✅ Development server config
   server: {
     port: 5173,
     strictPort: true,
     open: false,
+
+    // 🚫 Prevent hot-reload when JSON files in /data change
+    watch: {
+      ignored: [
+        "**/data/**", // ignore data folder at project root
+        "!**/src/**", // allow normal src watching
+      ],
+    },
   },
 });

@@ -27,6 +27,7 @@ function createWindow() {
     win.loadFile(path.join(RENDERER_DIST, "index.html"));
   }
 }
+app.whenReady().then(createWindow);
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
@@ -34,53 +35,45 @@ app.on("window-all-closed", () => {
   }
 });
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
+const DATA_DIR = path.join(process.env.APP_ROOT, "data");
+ipcMain.handle("readDir", async (_event, relativeDir) => {
+  try {
+    const fullPath = relativeDir ? path.join(DATA_DIR, relativeDir) : DATA_DIR;
+    const files = await fs.readdir(fullPath);
+    console.log("📂 Reading directory:", fullPath);
+    return files;
+  } catch (error) {
+    console.error("❌ Error reading directory:", error);
+    return [];
   }
 });
 ipcMain.handle("readFile", async (_event, filename) => {
   try {
-    const filePath = path.join(process.env.APP_ROOT, "src", "data", filename);
+    const safeName = path.basename(filename);
+    const filePath = path.join(DATA_DIR, safeName);
     const data = await fs.readFile(filePath, "utf-8");
+    console.log("📖 Reading file:", filePath);
     return JSON.parse(data);
   } catch (error) {
-    console.error(`Error reading file ${filename}:`, error);
+    console.error(`❌ Error reading file ${filename}:`, error);
     return null;
-  }
-});
-ipcMain.handle("readDir", async (_event, dirPath) => {
-  try {
-    const fullPath = path.join(process.env.APP_ROOT, "src", dirPath);
-    const files = await fs.readdir(fullPath);
-    return files;
-  } catch (error) {
-    console.error(`Error reading directory ${dirPath}:`, error);
-    return [];
   }
 });
 ipcMain.handle("writeFile", async (_event, filename, content) => {
   try {
-    const filePath = path.join(process.env.APP_ROOT, "src", "data", filename);
-    console.log("Writing to file:", filePath);
-    const dirPath = path.dirname(filePath);
-    await fs.mkdir(dirPath, { recursive: true });
+    const safeName = path.basename(filename);
+    const filePath = path.join(DATA_DIR, safeName);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content, "utf-8");
-    console.log("Successfully wrote to file:", filename);
-    const written = await fs.readFile(filePath, "utf-8");
-    const writtenContent = JSON.parse(written);
-    console.log("Verification - File contents:", JSON.stringify(writtenContent));
-    const parsedContent = JSON.parse(content);
-    if (JSON.stringify(writtenContent) !== JSON.stringify(parsedContent)) {
-      throw new Error("File verification failed - written content does not match expected content");
-    }
+    console.log(`✅ Successfully wrote to: ${filePath}`);
     return true;
   } catch (error) {
-    console.error(`Error writing file ${filename}:`, error);
-    console.error("Full path:", path.join(process.env.APP_ROOT, "src", "data", filename));
+    console.error(`❌ Error writing file ${filename}:`, error);
     throw error;
   }
 });
-app.whenReady().then(createWindow);
 export {
   MAIN_DIST,
   RENDERER_DIST,

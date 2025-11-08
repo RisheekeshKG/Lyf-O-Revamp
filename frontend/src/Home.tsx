@@ -1,294 +1,236 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { TableView } from "./components/TableView";
 import { TodoListView } from "./components/TodoListView";
 import { ChatView } from "./components/ChatView";
 
+declare global {
+  interface Window {
+    electron: {
+      ipcRenderer: {
+        invoke(channel: string, ...args: any[]): Promise<any>;
+      };
+    };
+  }
+}
+
 interface ChatMessage {
-  sender: 'user' | 'ai';
+  sender: "user" | "ai";
   text: string;
 }
 
+interface DataFile {
+  name: string;
+  file: string;
+  data: any;
+}
+
 const HomePage: React.FC = () => {
-  const [dataFiles, setDataFiles] = useState<{ name: string; file: string; data: any }[]>([]);
-  const [activeIndex, setActiveIndex] = useState<number>(0);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [activeView, setActiveView] = useState<"data" | "chat">("data");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeData, setActiveData] = useState<any>(null);
 
-  // Save chat to JSON file
-  const saveChat = async (messages: ChatMessage[]) => {
-    try {
-      const chatData = { messages };
-      await window.electron.ipcRenderer.invoke('writeFile', 'chat.json', JSON.stringify(chatData, null, 2));
-      console.log("💾 Chat saved");
-    } catch (error) {
-      console.error("Error saving chat:", error);
-    }
-  };
-
-  // Load chat history when component mounts
-  useEffect(() => {
-    const loadChat = async () => {
-      try {
-        const modules = import.meta.glob("@/data/*.json", { eager: true });
-        const chatFile = modules['@/data/chat.json'] as { messages: ChatMessage[] };
-        if (chatFile && chatFile.messages) {
-          setChatMessages(chatFile.messages);
-        }
-      } catch (error) {
-        console.error("Error loading chat:", error);
-      }
-    };
-    loadChat();
-  }, []);
-
-  // Handle sending chat messages
-  const handleSendMessage = async (message: string) => {
-    try {
-      // Add user message to UI
-      const userMessage: ChatMessage = { sender: "user", text: message };
-      setChatMessages((prev: ChatMessage[]) => {
-        const newMessages: ChatMessage[] = [...prev, userMessage];
-        saveChat(newMessages);
-        return newMessages;
-      });
-
-      // Send message to backend
-      let response;
-      try {
-        response = await fetch('http://localhost:8000/chat/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            content: message,
-            role: 'user'
-          })
-        });
-      } catch (e) {
-        throw new Error('Unable to connect to the backend server. Please make sure the server is running on http://localhost:8000');
-      }
-
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-
-      const data = await response.json();
-      
-      // Add AI response to chat
-      const aiResponse: ChatMessage = { sender: "ai", text: data.generated_text };
-      setChatMessages((prev: ChatMessage[]) => {
-        const newMessages: ChatMessage[] = [...prev, aiResponse];
-        saveChat(newMessages);
-        return newMessages;
-      });
-    } catch (error: any) {
-      console.error('Error sending message:', error);
-      setChatMessages((prev: ChatMessage[]) => {
-        const newMessages: ChatMessage[] = [...prev, {
-          sender: "ai",
-          text: `Error: ${error.message || 'Something went wrong. Please try again.'}`
-        }];
-        saveChat(newMessages);
-        return newMessages;
-      });
-    }
-  };
-
-  // Load all JSON files from data folder except chat.json
+  // ✅ Load JSON files once on startup
   useEffect(() => {
     const loadData = async () => {
       try {
-        const response = await window.electron.ipcRenderer.invoke('readDir', 'data');
-        const files = response.filter(file => file !== 'chat.json' && file.endsWith('.json'));
-        
-        const loadedFiles = [];
-        for (const file of files) {
-          const data = await window.electron.ipcRenderer.invoke('readFile', file);
-          if (data && data.type) { // Only add if it has a type property
-            loadedFiles.push({
-              name: data.name || file.replace('.json', ''),
-              file: file,
-              data: data
+        const files: string[] = await window.electron.ipcRenderer.invoke("readDir");
+        const jsonFiles = files.filter((f) => f.endsWith(".json"));
+        const loaded: DataFile[] = [];
+
+        for (const file of jsonFiles) {
+          const data = await window.electron.ipcRenderer.invoke("readFile", file);
+          if (data && data.type) {
+            loaded.push({
+              name: data.name || file.replace(".json", ""),
+              file,
+              data,
             });
           }
         }
-        setDataFiles(loadedFiles);
+
+        setDataFiles(loaded);
+        if (loaded.length > 0) {
+          setActiveIndex(0);
+          setActiveData(loaded[0].data);
+        }
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error("❌ Error loading JSON:", error);
+      } finally {
+        setLoading(false);
       }
     };
     loadData();
   }, []);
 
-  // Save data when changes have stabilized
-  useEffect(() => {
-    if (!dataFiles[activeIndex]) return;
-
-    let previousData = JSON.stringify(dataFiles[activeIndex].data);
-    let hasChanges = false;
-
-    const saveData = async () => {
-      try {
-        const currentData = JSON.stringify(dataFiles[activeIndex].data);
-        // Only save if data has actually changed
-        if (currentData !== previousData && hasChanges) {
-          await saveToFile(dataFiles[activeIndex].file, dataFiles[activeIndex].data);
-          previousData = currentData;
-          hasChanges = false;
-        }
-      } catch (error) {
-        console.error('Error auto-saving data:', error);
-      }
-    };
-
-    // Mark that changes occurred
-    hasChanges = true;
-
-    // Use a longer debounce (3 seconds) to wait for changes to stabilize
-    const timeoutId = setTimeout(saveData, 3000);
-    return () => clearTimeout(timeoutId);
-  }, [dataFiles, activeIndex]);
-
-  const activeData = dataFiles[activeIndex]?.data;
-
-  // Table actions
-  const saveToFile = async (fileName: string, data: any) => {
-    if (!fileName || !data) {
-      console.error('Invalid file name or data:', { fileName, data });
-      return;
+  // ✅ Save file helper (no reload)
+  const saveFile = useCallback(async (file: string, data: any) => {
+    try {
+      await window.electron.ipcRenderer.invoke(
+        "writeFile",
+        file,
+        JSON.stringify(data, null, 2)
+      );
+      console.log("💾 Saved:", file);
+    } catch (e) {
+      console.error("❌ Save failed:", e);
     }
+  }, []);
+
+  // ✅ File switching
+  const handleFileSelect = (index: number) => {
+    setActiveIndex(index);
+    setActiveData(dataFiles[index].data);
+    setActiveView("data");
+  };
+
+  // ✅ Data updating
+  const updateActiveData = (newData: any) => {
+    setActiveData(newData);
+    const updatedFiles = [...dataFiles];
+    updatedFiles[activeIndex] = { ...updatedFiles[activeIndex], data: newData };
+    setDataFiles(updatedFiles);
+
+    saveFile(updatedFiles[activeIndex].file, newData);
+  };
+
+  // ✅ Chat handler
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim()) return;
+
+    // Add user message immediately
+    const userMessage: ChatMessage = { sender: "user", text: message };
+    setChatMessages((prev) => [...prev, userMessage]);
 
     try {
-      const result = await window.electron.ipcRenderer.invoke('writeFile', fileName, JSON.stringify(data, null, 2));
-      if (!result) {
-        throw new Error('File save operation failed');
+      const response = await fetch("http://localhost:8000/chat/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          content: message,
+          role: "user",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.statusText}`);
       }
-      console.log(`💾 Successfully saved to ${fileName}`);
-    } catch (error) {
-      console.error(`Error saving to ${fileName}:`, error);
-      // TODO: Add user notification of save failure
-      throw error; // Propagate error to handler
+
+      const data = await response.json();
+      const aiMessage: ChatMessage = {
+        sender: "ai",
+        text: data.generated_text || "⚙️ No response received.",
+      };
+      setChatMessages((prev) => [...prev, aiMessage]);
+    } catch (error: any) {
+      console.error("Chat error:", error);
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: "ai", text: `❌ Error: ${error.message}` },
+      ]);
     }
   };
 
-  const handleValueChange = (rowIndex: number, colIndex: number, newValue: string) => {
-    if (!activeData || !dataFiles[activeIndex]) return;
-    
-    const updated = { ...activeData };
-    updated.values[rowIndex][colIndex] = newValue;
-    const newFiles = [...dataFiles];
-    newFiles[activeIndex].data = updated;
-    setDataFiles(newFiles);
+  // === Table actions ===
+  const handleValueChange = (row: number, col: number, val: string) => {
+    const newValues = activeData.values.map((r: any[], i: number) =>
+      i === row ? r.map((c, j) => (j === col ? val : c)) : r
+    );
+    updateActiveData({ ...activeData, values: newValues });
   };
 
   const handleAddRow = () => {
-    if (!activeData || !dataFiles[activeIndex]) return;
-
-    const updated = { ...activeData };
-    const newRow = updated.columns.map(() => "");
-    updated.values.push(newRow);
-    const newFiles = [...dataFiles];
-    newFiles[activeIndex].data = updated;
-    setDataFiles(newFiles);
+    const newRow = activeData.columns.map(() => "");
+    updateActiveData({ ...activeData, values: [...activeData.values, newRow] });
   };
 
-  const handleDeleteRow = (rowIndex: number) => {
-    if (!activeData || !dataFiles[activeIndex]) return;
-
-    const updated = { ...activeData };
-    updated.values.splice(rowIndex, 1);
-    const newFiles = [...dataFiles];
-    newFiles[activeIndex].data = updated;
-    setDataFiles(newFiles);
+  const handleDeleteRow = (row: number) => {
+    const newValues = activeData.values.filter((_: any, i: number) => i !== row);
+    updateActiveData({ ...activeData, values: newValues });
   };
 
-  // TodoList actions
-  const handleToggleTodo = (index: number) => {
-    if (!activeData || !dataFiles[activeIndex]) return;
-
-    const updated = { ...activeData };
-    updated.items[index].done = !updated.items[index].done;
-    const newFiles = [...dataFiles];
-    newFiles[activeIndex].data = updated;
-    setDataFiles(newFiles);
+  // === Todo actions ===
+  const handleToggleTodo = (i: number) => {
+    const newItems = activeData.items.map((t: any, idx: number) =>
+      idx === i ? { ...t, done: !t.done } : t
+    );
+    updateActiveData({ ...activeData, items: newItems });
   };
 
-  const handleEditTodo = (index: number, newText: string) => {
-    if (!activeData || !dataFiles[activeIndex]) return;
-
-    const updated = { ...activeData };
-    updated.items[index].task = newText;
-    const newFiles = [...dataFiles];
-    newFiles[activeIndex].data = updated;
-    setDataFiles(newFiles);
+  const handleEditTodo = (i: number, text: string) => {
+    const newItems = activeData.items.map((t: any, idx: number) =>
+      idx === i ? { ...t, task: text } : t
+    );
+    updateActiveData({ ...activeData, items: newItems });
   };
 
   const handleAddTodo = () => {
-    if (!activeData || !dataFiles[activeIndex]) return;
-
-    const updated = { ...activeData };
-    updated.items.push({ task: "", done: false });
-    const newFiles = [...dataFiles];
-    newFiles[activeIndex].data = updated;
-    setDataFiles(newFiles);
+    const newItems = [...activeData.items, { task: "", done: false }];
+    updateActiveData({ ...activeData, items: newItems });
   };
 
-  const handleDeleteTodo = (index: number) => {
-    if (!activeData || !dataFiles[activeIndex]) return;
-
-    const updated = { ...activeData };
-    updated.items.splice(index, 1);
-    const newFiles = [...dataFiles];
-    newFiles[activeIndex].data = updated;
-    setDataFiles(newFiles);
+  const handleDeleteTodo = (i: number) => {
+    const newItems = activeData.items.filter((_: any, idx: number) => idx !== i);
+    updateActiveData({ ...activeData, items: newItems });
   };
+
+  // === Render ===
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#191919] text-gray-400">
+        Loading JSON files...
+      </div>
+    );
+  }
+
+  if (!activeData) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#191919] text-gray-400">
+        No JSON file found in /data
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-screen bg-[#191919] text-gray-200 font-sans">
+    <div className="flex h-screen bg-[#191919] text-gray-200 font-sans overflow-hidden">
       <Sidebar
         dataFiles={dataFiles}
         activeIndex={activeIndex}
         activeView={activeView}
-        onFileSelect={(index) => {
-          setActiveIndex(index);
-          setActiveView('data'); // Switch back to data view when selecting a file
-        }}
+        onFileSelect={handleFileSelect}
         onViewChange={setActiveView}
       />
 
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col overflow-y-auto scroll-smooth">
         {activeView === "chat" ? (
           <ChatView
             messages={chatMessages}
             onSendMessage={handleSendMessage}
           />
-        ) : activeData ? (
-          activeData.type === "table" ? (
-            <TableView
-              data={activeData}
-              onValueChange={handleValueChange}
-              onAddRow={handleAddRow}
-              onDeleteRow={handleDeleteRow}
-            />
-          ) : activeData.type === "todolist" ? (
-            <TodoListView
-              data={activeData}
-              onToggleTodo={handleToggleTodo}
-              onEditTodo={handleEditTodo}
-              onAddTodo={handleAddTodo}
-              onDeleteTodo={handleDeleteTodo}
-            />
-          ) : (
-            <div className="flex items-center justify-center flex-1 text-gray-400">
-              Unsupported file type: <span className="ml-2 font-semibold">{activeData.type}</span>
-            </div>
-          )
+        ) : activeData.type === "table" ? (
+          <TableView
+            data={activeData}
+            onValueChange={handleValueChange}
+            onAddRow={handleAddRow}
+            onDeleteRow={handleDeleteRow}
+          />
+        ) : activeData.type === "todolist" ? (
+          <TodoListView
+            data={activeData}
+            onToggleTodo={handleToggleTodo}
+            onEditTodo={handleEditTodo}
+            onAddTodo={handleAddTodo}
+            onDeleteTodo={handleDeleteTodo}
+          />
         ) : (
-          <div className="flex items-center justify-center flex-1 text-gray-500">
-            Loading data...
+          <div className="flex items-center justify-center flex-1 text-gray-400">
+            Unsupported file type: {activeData.type}
           </div>
         )}
       </main>
