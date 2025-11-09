@@ -1,0 +1,14 @@
+{
+  "name": "Todo List",
+  "type": "todolist",
+  "items": [
+    {
+      "task": "New Task 1",
+      "done": false
+    },
+    {
+      "task": "New Task 2",
+      "done": false
+    }
+  ]
+}

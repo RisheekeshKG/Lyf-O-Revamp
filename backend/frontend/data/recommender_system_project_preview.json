@@ -1,0 +1,38 @@
+{
+  "name": "Recommender System Project Preview",
+  "type": "todolist",
+  "items": [
+    {
+      "task": "Define project scope and objectives",
+      "done": true
+    },
+    {
+      "task": "Identify key features and use cases",
+      "done": true
+    },
+    {
+      "task": "Outline data sources and architecture",
+      "done": true
+    },
+    {
+      "task": "Draft initial presentation slides",
+      "done": false
+    },
+    {
+      "task": "Prepare a brief demo scenario (if applicable)",
+      "done": false
+    },
+    {
+      "task": "Review content with team lead/mentor",
+      "done": false
+    },
+    {
+      "task": "Finalize slides and talking points",
+      "done": false
+    },
+    {
+      "task": "Set up meeting room/virtual call for 15:30",
+      "done": false
+    }
+  ]
+}

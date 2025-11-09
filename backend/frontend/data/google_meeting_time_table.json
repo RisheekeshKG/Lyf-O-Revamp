@@ -1,0 +1,75 @@
+{
+  "name": "Google Meeting Time Table",
+  "type": "table",
+  "columns": [
+    {
+      "name": "Task",
+      "type": "text"
+    },
+    {
+      "name": "Status",
+      "type": "options",
+      "options": [
+        "In Progress",
+        "Completed"
+      ]
+    },
+    {
+      "name": "Priority",
+      "type": "options",
+      "options": [
+        "High",
+        "Medium",
+        "Low"
+      ]
+    },
+    {
+      "name": "Due Date",
+      "type": "date"
+    }
+  ],
+  "values": [
+    [
+      "Google Meet: Math Class with Mr. Smith (09:00-10:00)",
+      "In Progress",
+      "High",
+      "2023-10-27"
+    ],
+    [
+      "Google Meet: Science Class with Ms. Jones (11:00-12:00)",
+      "In Progress",
+      "High",
+      "2023-10-30"
+    ],
+    [
+      "Google Meet: English Class with Mr. Davis (14:00-15:00)",
+      "In Progress",
+      "High",
+      "2023-10-31"
+    ],
+    [
+      "Google Meet: Office Hours with Mr. Smith (10:30-11:00)",
+      "In Progress",
+      "Medium",
+      "2023-10-27"
+    ],
+    [
+      "Google Meet: History Class with Dr. Lee (10:00-11:00)",
+      "In Progress",
+      "High",
+      "2023-11-01"
+    ],
+    [
+      "Review assignment for Science class",
+      "In Progress",
+      "Medium",
+      "2023-10-29"
+    ],
+    [
+      "Prepare questions for Mr. Davis's class",
+      "In Progress",
+      "Low",
+      "2023-10-30"
+    ]
+  ]
+}

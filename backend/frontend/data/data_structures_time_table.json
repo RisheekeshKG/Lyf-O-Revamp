@@ -1,0 +1,131 @@
+{
+  "name": "Data Structures Time Table",
+  "type": "table",
+  "columns": [
+    {
+      "name": "Task",
+      "type": "text"
+    },
+    {
+      "name": "Status",
+      "type": "options",
+      "options": [
+        "In Progress",
+        "Completed"
+      ]
+    },
+    {
+      "name": "Priority",
+      "type": "options",
+      "options": [
+        "High",
+        "Medium",
+        "Low"
+      ]
+    },
+    {
+      "name": "Due Date",
+      "type": "date"
+    }
+  ],
+  "values": [
+    [
+      "Monday",
+      "09:00 - 10:00",
+      "Introduction to Data Structures & Algorithms",
+      "Lecture",
+      "Auditorium A"
+    ],
+    [
+      "Monday",
+      "10:00 - 11:00",
+      "Arrays: Static vs. Dynamic",
+      "Lecture",
+      "Auditorium A"
+    ],
+    [
+      "Monday",
+      "14:00 - 16:00",
+      "Lab Session: Array Operations & Complexity",
+      "Lab",
+      "Lab 101"
+    ],
+    [
+      "Tuesday",
+      "09:00 - 10:00",
+      "Linked Lists: Singly, Doubly, Circular",
+      "Lecture",
+      "Classroom 205"
+    ],
+    [
+      "Tuesday",
+      "10:00 - 11:00",
+      "Stacks: LIFO Principle & Implementations",
+      "Lecture",
+      "Classroom 205"
+    ],
+    [
+      "Tuesday",
+      "11:00 - 12:00",
+      "Tutorial: Stacks & Linked Lists Problems",
+      "Tutorial",
+      "Classroom 205"
+    ],
+    [
+      "Wednesday",
+      "09:00 - 10:00",
+      "Queues: FIFO Principle & Implementations",
+      "Lecture",
+      "Auditorium A"
+    ],
+    [
+      "Wednesday",
+      "10:00 - 11:00",
+      "Trees: Basic Concepts & Terminology",
+      "Lecture",
+      "Auditorium A"
+    ],
+    [
+      "Wednesday",
+      "14:00 - 16:00",
+      "Lab Session: Stacks & Queues Applications",
+      "Lab",
+      "Lab 101"
+    ],
+    [
+      "Thursday",
+      "09:00 - 10:00",
+      "Binary Trees & Binary Search Trees (BSTs)",
+      "Lecture",
+      "Classroom 205"
+    ],
+    [
+      "Thursday",
+      "10:00 - 11:00",
+      "Heaps & Priority Queues",
+      "Lecture",
+      "Classroom 205"
+    ],
+    [
+      "Friday",
+      "09:00 - 10:00",
+      "Graphs: Representation (Adjacency List/Matrix)",
+      "Lecture",
+      "Auditorium A"
+    ],
+    [
+      "Friday",
+      "10:00 - 11:00",
+      "Graph Traversal: DFS & BFS",
+      "Lecture",
+      "Auditorium A"
+    ],
+    [
+      "Friday",
+      "11:00 - 12:00",
+      "Weekly Review & Q&A",
+      "Review Session",
+      "Classroom 205"
+    ]
+  ]
+}

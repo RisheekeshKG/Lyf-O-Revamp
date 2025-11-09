@@ -1,0 +1,63 @@
+{
+  "name": "Tuesday Physics Exam Timetable",
+  "type": "table",
+  "columns": [
+    {
+      "name": "Task",
+      "type": "text"
+    },
+    {
+      "name": "Status",
+      "type": "options",
+      "options": [
+        "In Progress",
+        "Completed"
+      ]
+    },
+    {
+      "name": "Priority",
+      "type": "options",
+      "options": [
+        "High",
+        "Medium",
+        "Low"
+      ]
+    },
+    {
+      "name": "Due Date",
+      "type": "date"
+    }
+  ],
+  "values": [
+    [
+      "09:00 - 11:00",
+      "Physics I (Mechanics)",
+      "LH-101",
+      "Dr. A. Sharma"
+    ],
+    [
+      "11:30 - 13:30",
+      "Electromagnetism II",
+      "Online (Zoom)",
+      "Prof. K. Lee"
+    ],
+    [
+      "14:00 - 16:00",
+      "Quantum Mechanics I",
+      "Gymnasium B",
+      "Dr. J. Patel"
+    ],
+    [
+      "16:30 - 18:30",
+      "Thermodynamics",
+      "LH-203",
+      "Prof. S. Chen"
+    ],
+    [
+      "19:00 - 21:00",
+      "Astrophysics Fundamentals",
+      "Virtual Lab 1",
+      "Dr. M. Garcia"
+    ]
+  ]
+}

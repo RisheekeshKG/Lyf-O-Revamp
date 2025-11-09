@@ -1,0 +1,63 @@
+{
+  "name": "Office Meeting Timetable",
+  "type": "table",
+  "columns": [
+    {
+      "name": "Task",
+      "type": "text"
+    },
+    {
+      "name": "Status",
+      "type": "options",
+      "options": [
+        "In Progress",
+        "Completed"
+      ]
+    },
+    {
+      "name": "Priority",
+      "type": "options",
+      "options": [
+        "High",
+        "Medium",
+        "Low"
+      ]
+    },
+    {
+      "name": "Due Date",
+      "type": "date"
+    }
+  ],
+  "values": [
+    [
+      "09:00 - 10:00 - Weekly Team Sync",
+      "In Progress",
+      "High",
+      "2023-11-01"
+    ],
+    [
+      "10:30 - 11:30 - Project Alpha Update",
+      "In Progress",
+      "High",
+      "2023-11-01"
+    ],
+    [
+      "13:00 - 14:00 - Client X Proposal Review",
+      "In Progress",
+      "Medium",
+      "2023-11-02"
+    ],
+    [
+      "14:30 - 15:00 - 1:1 with Sarah Connor",
+      "In Progress",
+      "Low",
+      "2023-11-02"
+    ],
+    [
+      "16:00 - 17:00 - Q4 Strategy Session",
+      "In Progress",
+      "High",
+      "2023-11-03"
+    ]
+  ]
+}

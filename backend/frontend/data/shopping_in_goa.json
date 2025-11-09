@@ -1,0 +1,38 @@
+{
+  "name": "Shopping in Goa",
+  "type": "todolist",
+  "items": [
+    {
+      "task": "Buy local Goan spices at Mapusa Market",
+      "done": false
+    },
+    {
+      "task": "Pick up cashew nuts from Zantye's",
+      "done": false
+    },
+    {
+      "task": "Find unique souvenirs and handicrafts",
+      "done": false
+    },
+    {
+      "task": "Shop for beachwear and flip-flops",
+      "done": false
+    },
+    {
+      "task": "Look for traditional Goan sweets (Dodol, Bebinca)",
+      "done": false
+    },
+    {
+      "task": "Visit a local liquor store for Feni or Port Wine",
+      "done": false
+    },
+    {
+      "task": "Check out Anjuna Flea Market for trinkets (if open)",
+      "done": false
+    },
+    {
+      "task": "Buy some Goan pottery or ceramics",
+      "done": false
+    }
+  ]
+}

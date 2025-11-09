@@ -1,0 +1,42 @@
+{
+  "name": "Physics, Maths, Science",
+  "type": "todolist",
+  "items": [
+    {
+      "task": "Review Newton's Laws of Motion",
+      "done": true
+    },
+    {
+      "task": "Solve projectile motion problems (Chapter 3)",
+      "done": false
+    },
+    {
+      "task": "Read introductory chapter on Thermodynamics",
+      "done": false
+    },
+    {
+      "task": "Complete Calculus problem set on Integration",
+      "done": true
+    },
+    {
+      "task": "Practice Linear Algebra matrix operations",
+      "done": false
+    },
+    {
+      "task": "Study probability distributions for statistics exam",
+      "done": true
+    },
+    {
+      "task": "Research different types of chemical bonds",
+      "done": true
+    },
+    {
+      "task": "Prepare presentation on the human circulatory system",
+      "done": false
+    },
+    {
+      "task": "Review lab report on plant photosynthesis",
+      "done": false
+    }
+  ]
+}
