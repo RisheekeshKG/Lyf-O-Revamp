@@ -1,5 +1,5 @@
 {
-  "name": "test1",
+  "name": "test",
   "type": "table",
   "columns": [
     {
@@ -28,5 +28,12 @@
       "type": "date"
     }
   ],
-  "values": []
+  "values": [
+    [
+      "",
+      "In Progress",
+      "Medium",
+      ""
+    ]
+  ]
 }

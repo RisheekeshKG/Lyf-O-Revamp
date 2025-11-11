@@ -4,8 +4,13 @@ import { FileModal } from "./components/FileModal";
 import { DeleteModal } from "./components/DeleteModal";
 import { TableView } from "./components/TableView";
 import { TodoListView } from "./components/TodoListView";
+import { DocumentView } from "./components/DocumentView";
+import { CalendarView } from "./components/CalendarView";
+import { KanbanView } from "./components/KanbanView";
+import { HabitTrackerView } from "./components/HabitTrackerView";
+import { JournalView } from "./components/JournalView";
 import { ChatView } from "./components/ChatView";
-import { GmailInbox } from "./components/GmailInbox"; // ✅ Inbox view
+import { GmailInbox } from "./components/GmailInbox";
 
 interface ChatMessage {
   sender: "user" | "ai";
@@ -22,14 +27,14 @@ const HomePage: React.FC = () => {
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<"data" | "chat" | "inbox">("data");
+  const [activeData, setActiveData] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeData, setActiveData] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
 
-  // ✅ Load JSON files from /data
+  // ✅ Load JSON files (safe JSON parse)
   const loadDataFiles = useCallback(async () => {
     try {
       for (let i = 0; i < 20 && !window.electronAPI; i++) {
@@ -46,14 +51,31 @@ const HomePage: React.FC = () => {
       const jsonFiles = files.filter((f) => f.endsWith(".json"));
 
       const loaded: DataFile[] = [];
+
       for (const file of jsonFiles) {
-        const data = await window.electronAPI.invoke("readFile", file);
-        if (data) {
+        try {
+          const raw = await window.electronAPI.invoke("readFile", file);
+          if (!raw) continue;
+
+          let data;
+          if (typeof raw === "string") {
+            try {
+              data = JSON.parse(raw);
+            } catch (err) {
+              console.error(`❌ Failed to parse ${file}:`, err);
+              continue;
+            }
+          } else {
+            data = raw;
+          }
+
           loaded.push({
             name: data.name || file.replace(".json", ""),
             file,
             data,
           });
+        } catch (err) {
+          console.error(`❌ Error reading ${file}:`, err);
         }
       }
 
@@ -77,7 +99,7 @@ const HomePage: React.FC = () => {
     loadDataFiles();
   }, [loadDataFiles]);
 
-  // ✅ Save file
+  // ✅ Save file (auto-updates file in /data)
   const saveFile = useCallback(async (file: string, data: any) => {
     if (!window.electronAPI) return;
     try {
@@ -88,36 +110,32 @@ const HomePage: React.FC = () => {
     }
   }, []);
 
-  // ✅ File selection (for table/todo)
+  // ✅ File selection
   const handleFileSelect = (index: number) => {
     setActiveIndex(index);
     setActiveData(dataFiles[index].data);
     setActiveView("data");
   };
 
-  // ✅ Handle sidebar view change
+  // ✅ Sidebar view switching
   const handleViewChange = (view: "data" | "chat" | "inbox") => {
     setActiveView(view);
-
-    // Clear file selection when moving to non-data views
     if (view !== "data") {
       setActiveIndex(null);
       setActiveData(null);
     }
   };
 
-  // ✅ Request delete modal
+  // ✅ File delete logic
   const requestFileDelete = (file: string) => {
     setFileToDelete(file);
     setShowDeleteModal(true);
   };
 
-  // ✅ Confirm file deletion
   const confirmDeleteFile = async () => {
     if (!fileToDelete) return;
     try {
       const result = await window.electronAPI.invoke("deleteFile", fileToDelete);
-
       if (result?.success) {
         const updatedFiles = dataFiles.filter((f) => f.file !== fileToDelete);
         setDataFiles(updatedFiles);
@@ -132,7 +150,7 @@ const HomePage: React.FC = () => {
           }
         }
       } else {
-        alert("❌ Failed to delete file: " + (result?.error || "Unknown error"));
+        alert("❌ Failed to delete file");
       }
     } catch (err) {
       console.error("❌ Delete failed:", err);
@@ -142,7 +160,7 @@ const HomePage: React.FC = () => {
     }
   };
 
-  // ✅ Update file data
+  // ✅ Update and autosave
   const updateActiveData = (newData: any) => {
     if (activeIndex === null) return;
     setActiveData(newData);
@@ -152,7 +170,7 @@ const HomePage: React.FC = () => {
     saveFile(updated[activeIndex].file, newData);
   };
 
-  // ✅ Chat handler (AI + tool mode)
+  // ✅ Chat (AI assistant)
   const handleSendMessage = async (message: string) => {
     if (!message.trim()) return;
     setChatMessages((prev) => [...prev, { sender: "user", text: message }]);
@@ -166,32 +184,36 @@ const HomePage: React.FC = () => {
 
       if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
       const data = await res.json();
-      console.log("🤖 AI Response:", data);
 
+      // Tool-mode = create new JSON file via LLM
       if (data.mode === "tool" && data.result?.content) {
         const jsonData = data.result.content;
         const fileName = `${jsonData.name.toLowerCase().replace(/\s+/g, "_")}.json`;
-
         await window.electronAPI.invoke("writeFile", fileName, JSON.stringify(jsonData, null, 2));
         setChatMessages((prev) => [
           ...prev,
           { sender: "ai", text: `✅ Created new file "${jsonData.name}" (${jsonData.type})` },
         ]);
-
         await loadDataFiles();
         setActiveView("data");
         return;
       }
 
-      const aiMessage = data.generated_text || data.result || "⚙️ No response received.";
-      setChatMessages((prev) => [...prev, { sender: "ai", text: aiMessage }]);
+      // Regular AI message
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: "ai", text: data.generated_text || "⚙️ No response" },
+      ]);
     } catch (err: any) {
       console.error("❌ Chat error:", err);
-      setChatMessages((prev) => [...prev, { sender: "ai", text: `❌ Error: ${err.message}` }]);
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: "ai", text: `❌ ${err.message}` },
+      ]);
     }
   };
 
-  // === Table + Todo actions ===
+  // ✅ Editable handlers (table + todo)
   const handleValueChange = (row: number, col: number, val: string) => {
     const newValues = activeData.values.map((r: any[], i: number) =>
       i === row ? r.map((c, j) => (j === col ? val : c)) : r
@@ -233,7 +255,36 @@ const HomePage: React.FC = () => {
     updateActiveData({ ...activeData, items: newItems });
   };
 
-  // === Render ===
+  // ✅ Render correct component based on file type
+  const renderView = () => {
+    if (activeView === "chat")
+      return <ChatView messages={chatMessages} onSendMessage={handleSendMessage} onResetChat={() => setChatMessages([])} />;
+    if (activeView === "inbox") return <GmailInbox />;
+
+    if (!activeData)
+      return <div className="flex items-center justify-center flex-1 text-gray-400">No JSON file found in /data</div>;
+
+    switch (activeData.type) {
+      case "table":
+        return <TableView data={activeData} onValueChange={handleValueChange} onAddRow={handleAddRow} onDeleteRow={handleDeleteRow} />;
+      case "todolist":
+        return <TodoListView data={activeData} onToggleTodo={handleToggleTodo} onEditTodo={handleEditTodo} onAddTodo={handleAddTodo} onDeleteTodo={handleDeleteTodo} />;
+      case "document":
+        return <DocumentView data={activeData} onChange={updateActiveData} />;
+      case "calendar":
+        return <CalendarView data={activeData} />;
+      case "board":
+        return <KanbanView data={activeData} />;
+      case "habit":
+        return <HabitTrackerView data={activeData} />;
+      case "journal":
+        return <JournalView data={activeData} />;
+      default:
+        return <div className="flex items-center justify-center flex-1 text-gray-400">Unsupported file type: {activeData.type}</div>;
+    }
+  };
+
+  // ✅ UI
   if (loading)
     return (
       <div className="flex items-center justify-center h-screen bg-[#191919] text-gray-400">
@@ -248,47 +299,13 @@ const HomePage: React.FC = () => {
         activeIndex={activeIndex ?? -1}
         activeView={activeView}
         onFileSelect={handleFileSelect}
-        onViewChange={handleViewChange} // ✅ Updated
+        onViewChange={handleViewChange}
         onCreateNew={() => setShowModal(true)}
         onDeleteFile={requestFileDelete}
       />
 
-      <main className="flex-1 flex flex-col overflow-y-auto scroll-smooth">
-        {activeView === "chat" ? (
-          <ChatView
-            messages={chatMessages}
-            onSendMessage={handleSendMessage}
-            onResetChat={() => setChatMessages([])}
-          />
-        ) : activeView === "inbox" ? (
-          <GmailInbox />
-        ) : !activeData ? (
-          <div className="flex items-center justify-center flex-1 text-gray-400">
-            No JSON file found in /data
-          </div>
-        ) : activeData.type === "table" ? (
-          <TableView
-            data={activeData}
-            onValueChange={handleValueChange}
-            onAddRow={handleAddRow}
-            onDeleteRow={handleDeleteRow}
-          />
-        ) : activeData.type === "todolist" ? (
-          <TodoListView
-            data={activeData}
-            onToggleTodo={handleToggleTodo}
-            onEditTodo={handleEditTodo}
-            onAddTodo={handleAddTodo}
-            onDeleteTodo={handleDeleteTodo}
-          />
-        ) : (
-          <div className="flex items-center justify-center flex-1 text-gray-400">
-            Unsupported file type: {activeData?.type ?? "unknown"}
-          </div>
-        )}
-      </main>
+      <main className="flex-1 flex flex-col overflow-y-auto">{renderView()}</main>
 
-      {/* ✅ File Creation Modal */}
       {showModal && (
         <FileModal
           onClose={() => setShowModal(false)}
@@ -299,7 +316,6 @@ const HomePage: React.FC = () => {
         />
       )}
 
-      {/* ✅ Delete Confirmation Modal */}
       {showDeleteModal && fileToDelete && (
         <DeleteModal
           fileName={fileToDelete}
