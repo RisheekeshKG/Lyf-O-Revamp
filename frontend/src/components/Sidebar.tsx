@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Plus,
   Trash2,
+  Star,
 } from "lucide-react";
 
 interface SidebarItemProps {
@@ -51,9 +52,9 @@ SidebarItem.displayName = "SidebarItem";
 interface SidebarProps {
   dataFiles: Array<{ name: string; file: string; data: any }>;
   activeIndex: number;
-  activeView: "data" | "chat" | "inbox";
+  activeView: "data" | "chat" | "inbox" | "recommend";
   onFileSelect: (index: number) => void;
-  onViewChange: (view: "data" | "chat" | "inbox") => void;
+  onViewChange: (view: "data" | "chat" | "inbox" | "recommend") => void;
   onCreateNew: () => void;
   onDeleteFile: (file: string) => void;
 }
@@ -88,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = memo(
         {/* --- Top section --- */}
         <div>
           <div className="p-4 text-lg font-semibold truncate">
-            Risheekesh K G&apos;s Space
+            Lyf - O
           </div>
 
           <nav className="flex flex-col gap-1 px-3 overflow-y-auto">
@@ -102,12 +103,20 @@ export const Sidebar: React.FC<SidebarProps> = memo(
               onClick={() => onViewChange("chat")}
             />
 
-            {/* ✅ Inbox button now functional */}
+            {/* ✅ Inbox button */}
             <SidebarItem
               icon={<Inbox size={18} />}
               text="Inbox"
               active={activeView === "inbox"}
               onClick={() => onViewChange("inbox")}
+            />
+
+            {/* 🌟 Recommend button */}
+            <SidebarItem
+              icon={<Star size={18} />}
+              text="Recommend"
+              active={activeView === "recommend"}
+              onClick={() => onViewChange("recommend")}
             />
 
             <div className="pt-3 text-xs text-gray-400 uppercase flex items-center justify-between">
