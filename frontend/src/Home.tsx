@@ -120,37 +120,42 @@ const HomePage: React.FC = () => {
 
   // ✅ Recommend logic (fetch from backend)
   const handleRecommend = async () => {
-    setRecommendStatus("Fetching recommendations...");
-    setRecommendations([]);
-    try {
-      const res = await fetch("http://localhost:8000/recommend", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+  setRecommendStatus("Fetching recommendations...");
+  setRecommendations([]);
 
-      if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
+  try {
+    const res = await fetch("http://localhost:8000/recommend", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
 
-      const result = await res.json();
-      if (!Array.isArray(result)) throw new Error("Invalid format: expected array of JSONs");
+    if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
 
-      // 🩹 Normalize structures (fixes habit tracker)
-      const normalized = result.map((jsonData: any) => {
-        if (jsonData.type === "habit") {
-          jsonData.items = jsonData.items || jsonData.habits || [];
-        }
-        if (jsonData.type === "todolist") {
-          jsonData.items = jsonData.items || [];
-        }
-        return jsonData;
-      });
+    const result = await res.json();
 
-      setRecommendations(normalized);
-      setRecommendStatus(`✅ Found ${normalized.length} recommended templates`);
-    } catch (err: any) {
-      console.error("❌ Recommend error:", err);
-      setRecommendStatus(`❌ ${err.message}`);
-    }
-  };
+    const recos = result.recommendations || [];
+
+    if (!Array.isArray(recos))
+      throw new Error("Invalid recommendations format from backend");
+
+    const normalized = recos.map((jsonData: any) => {
+      if (jsonData.type === "habit") {
+        jsonData.items = jsonData.items || jsonData.habits || [];
+      }
+      if (jsonData.type === "todolist") {
+        jsonData.items = jsonData.items || [];
+      }
+      return jsonData;
+    });
+
+    setRecommendations(normalized);
+    setRecommendStatus(`✅ Found ${normalized.length} recommended templates`);
+  } catch (err: any) {
+    console.error("❌ Recommend error:", err);
+    setRecommendStatus(`❌ ${err.message}`);
+  }
+};
+
 
   const handleSaveRecommendation = async (rec: RecommendedItem) => {
     if (!window.electronAPI) {
