@@ -1,0 +1,18 @@
+{
+  "name": "Personal To-Do",
+  "type": "todolist",
+  "items": [
+    {
+      "task": "Attend Online Lecture",
+      "done": false
+    },
+    {
+      "task": "Complete Assignment",
+      "done": true
+    },
+    {
+      "task": "Study for Exam",
+      "done": true
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "name": "Work Tasks",
+  "type": "table",
+  "columns": [
+    {
+      "name": "Task",
+      "type": "text"
+    },
+    {
+      "name": "Status",
+      "type": "options",
+      "options": [
+        "In Progress",
+        "Completed"
+      ]
+    },
+    {
+      "name": "Priority",
+      "type": "options",
+      "options": [
+        "High",
+        "Medium",
+        "Low"
+      ]
+    },
+    {
+      "name": "Due Date",
+      "type": "date"
+    }
+  ],
+  "values": [
+    [
+      "Study for Midterm",
+      "In Progress",
+      "High",
+      "2024-12-15"
+    ],
+    [
+      "Submit History Assignment",
+      "In Progress",
+      "High",
+      "2024-12-01"
+    ],
+    [
+      "Attend Chemistry Lecture",
+      "Completed",
+      "Low",
+      "2024-11-27"
+    ]
+  ]
+}

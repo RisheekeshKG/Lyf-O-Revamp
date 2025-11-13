@@ -33,7 +33,9 @@ interface RecommendedItem {
 const HomePage: React.FC = () => {
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [activeView, setActiveView] = useState<"data" | "chat" | "inbox" | "recommend">("data");
+  const [activeView, setActiveView] = useState<
+    "data" | "chat" | "inbox" | "recommend"
+  >("data");
   const [activeData, setActiveData] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,7 +118,11 @@ const HomePage: React.FC = () => {
   const saveFile = useCallback(async (file: string, data: any) => {
     if (!window.electronAPI) return;
     try {
-      await window.electronAPI.invoke("writeFile", file, JSON.stringify(data, null, 2));
+      await window.electronAPI.invoke(
+        "writeFile",
+        file,
+        JSON.stringify(data, null, 2)
+      );
       console.log("💾 Saved:", file);
     } catch (e) {
       console.error("❌ Save failed:", e);
@@ -149,7 +155,10 @@ const HomePage: React.FC = () => {
   const confirmDeleteFile = async () => {
     if (!fileToDelete) return;
     try {
-      const result = await window.electronAPI.invoke("deleteFile", fileToDelete);
+      const result = await window.electronAPI.invoke(
+        "deleteFile",
+        fileToDelete
+      );
       if (result?.success) {
         const updatedFiles = dataFiles.filter((f) => f.file !== fileToDelete);
         setDataFiles(updatedFiles);
@@ -198,20 +207,35 @@ const HomePage: React.FC = () => {
       const data = await res.json();
       if (data.mode === "tool" && data.result?.content) {
         const jsonData = data.result.content;
-        const fileName = `${jsonData.name.toLowerCase().replace(/\s+/g, "_")}.json`;
-        await window.electronAPI.invoke("writeFile", fileName, JSON.stringify(jsonData, null, 2));
+        const fileName = `${jsonData.name
+          .toLowerCase()
+          .replace(/\s+/g, "_")}.json`;
+        await window.electronAPI.invoke(
+          "writeFile",
+          fileName,
+          JSON.stringify(jsonData, null, 2)
+        );
         setChatMessages((prev) => [
           ...prev,
-          { sender: "ai", text: `✅ Created new file "${jsonData.name}" (${jsonData.type})` },
+          {
+            sender: "ai",
+            text: `✅ Created new file "${jsonData.name}" (${jsonData.type})`,
+          },
         ]);
         await loadDataFiles();
         setActiveView("data");
         return;
       }
-      setChatMessages((prev) => [...prev, { sender: "ai", text: data.generated_text || "⚙️ No response" }]);
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: "ai", text: data.generated_text || "⚙️ No response" },
+      ]);
     } catch (err: any) {
       console.error("❌ Chat error:", err);
-      setChatMessages((prev) => [...prev, { sender: "ai", text: `❌ ${err.message}` }]);
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: "ai", text: `❌ ${err.message}` },
+      ]);
     }
   };
 
@@ -239,19 +263,25 @@ const HomePage: React.FC = () => {
         if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
         const data = await res.json();
         const recos = data.recommendations || [];
-        if (!Array.isArray(recos)) throw new Error("Invalid recommendations format from backend");
+        if (!Array.isArray(recos))
+          throw new Error("Invalid recommendations format from backend");
         setRecommendations(recos);
-        setRecommendStatus(`✅ Found ${recos.length} templates (cluster ${data.cluster ?? "?"})`);
+        setRecommendStatus(
+          `✅ Found ${recos.length} templates (cluster ${data.cluster ?? "?"})`
+        );
         setActiveView("recommend");
         return;
       }
 
       // fallback to GET random
-      const res = await fetch("http://localhost:8000/recommend", { method: "GET" });
+      const res = await fetch("http://localhost:8000/recommend", {
+        method: "GET",
+      });
       if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
       const data = await res.json();
       const recos = data.recommendations || data || [];
-      if (!Array.isArray(recos)) throw new Error("Invalid recommendations format from backend");
+      if (!Array.isArray(recos))
+        throw new Error("Invalid recommendations format from backend");
       setRecommendations(recos);
       setRecommendStatus(`✅ Found ${recos.length} templates (random)`);
       setActiveView("recommend");
@@ -269,12 +299,51 @@ const HomePage: React.FC = () => {
     }
     try {
       const fileName = `${rec.name.toLowerCase().replace(/\s+/g, "_")}.json`;
-      await window.electronAPI.invoke("writeFile", fileName, JSON.stringify(rec, null, 2));
+      await window.electronAPI.invoke(
+        "writeFile",
+        fileName,
+        JSON.stringify(rec, null, 2)
+      );
       setRecommendStatus(`✅ Saved "${rec.name}"`);
       await loadDataFiles();
     } catch (err) {
       console.error("❌ Save recommend failed:", err);
       setRecommendStatus(`❌ Failed to save ${rec.name}`);
+    }
+  };
+  const handleEnhanceRecommendation = async (rec: RecommendedItem) => {
+    try {
+      setRecommendStatus("✨ Enhancing template...");
+
+      // Get user profile from localStorage
+      let profile = null;
+      try {
+        profile = JSON.parse(localStorage.getItem("user_profile") || "null");
+      } catch (e) {
+        console.warn("Failed to parse user profile", e);
+      }
+
+      const res = await fetch("http://localhost:8000/chat/enhance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          template: rec,
+          user_profile: profile, // <-- 🔥 send user profile
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
+
+      const data = await res.json();
+      const enhanced = data.enhanced;
+
+      setRecommendStatus("✨ Template enhanced!");
+      setRecommendations((prev) =>
+        prev.map((x) => (x.name === rec.name ? enhanced : x))
+      );
+    } catch (err: any) {
+      console.error("❌ Enhance failed:", err);
+      setRecommendStatus(`❌ ${err.message}`);
     }
   };
 
@@ -283,19 +352,30 @@ const HomePage: React.FC = () => {
   // -------------------------
   const renderView = () => {
     if (activeView === "chat")
-      return <ChatView messages={chatMessages} onSendMessage={handleSendMessage} onResetChat={() => setChatMessages([])} />;
+      return (
+        <ChatView
+          messages={chatMessages}
+          onSendMessage={handleSendMessage}
+          onResetChat={() => setChatMessages([])}
+        />
+      );
     if (activeView === "inbox") return <GmailInbox />;
     if (activeView === "recommend")
       return (
         <div className="p-6 text-gray-200 flex flex-col gap-4 overflow-y-auto">
           <h2 className="text-xl font-semibold mb-2">Recommended Templates</h2>
-          {recommendStatus && <div className="text-gray-400">{recommendStatus}</div>}
+          {recommendStatus && (
+            <div className="text-gray-400">{recommendStatus}</div>
+          )}
 
           {recommendations.length === 0 ? (
             <div className="text-gray-500">No recommendations yet.</div>
           ) : (
             recommendations.map((rec, idx) => (
-              <div key={idx} className="bg-[#2a2a2a] rounded-xl p-4 flex justify-between items-center hover:bg-[#333333] transition">
+              <div
+                key={idx}
+                className="bg-[#2a2a2a] rounded-xl p-4 flex justify-between items-center hover:bg-[#333333] transition"
+              >
                 <div>
                   <div className="text-lg font-semibold">{rec.name}</div>
                   <div className="text-sm text-gray-400">Type: {rec.type}</div>
@@ -303,16 +383,41 @@ const HomePage: React.FC = () => {
                     {JSON.stringify(rec, null, 2).slice(0, 180)}...
                   </pre>
                 </div>
-                <button onClick={() => handleSaveRecommendation(rec)} className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-lg transition">
+                <button
+                  onClick={() => handleSaveRecommendation(rec)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-lg transition"
+                >
                   Save
                 </button>
+                <div className="flex gap-2">
+                  {/* Enhance Button */}
+                  <button
+                    onClick={() => handleEnhanceRecommendation(rec)}
+                    className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-1.5 rounded-lg transition"
+                  >
+                    Enhance
+                  </button>
+
+                  {/* Save Button */}
+                  <button
+                    onClick={() => handleSaveRecommendation(rec)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-lg transition"
+                  >
+                    Save
+                  </button>
+                </div>
               </div>
             ))
           )}
         </div>
       );
 
-    if (!activeData) return <div className="flex items-center justify-center flex-1 text-gray-400">No JSON file found in /data</div>;
+    if (!activeData)
+      return (
+        <div className="flex items-center justify-center flex-1 text-gray-400">
+          No JSON file found in /data
+        </div>
+      );
 
     switch (activeData.type) {
       case "table":
@@ -322,23 +427,64 @@ const HomePage: React.FC = () => {
             onValueChange={(r, c, v) =>
               updateActiveData({
                 ...activeData,
-                values: activeData.values.map((row: any[], i: number) => (i === r ? row.map((col, j) => (j === c ? v : col)) : row)),
+                values: activeData.values.map((row: any[], i: number) =>
+                  i === r ? row.map((col, j) => (j === c ? v : col)) : row
+                ),
               })
             }
             onAddRow={() =>
-              updateActiveData({ ...activeData, values: [...activeData.values, activeData.columns.map(() => "")] })
+              updateActiveData({
+                ...activeData,
+                values: [
+                  ...activeData.values,
+                  activeData.columns.map(() => ""),
+                ],
+              })
             }
-            onDeleteRow={(r) => updateActiveData({ ...activeData, values: activeData.values.filter((_: any, i: number) => i !== r) })}
+            onDeleteRow={(r) =>
+              updateActiveData({
+                ...activeData,
+                values: activeData.values.filter(
+                  (_: any, i: number) => i !== r
+                ),
+              })
+            }
           />
         );
       case "todolist":
         return (
           <TodoListView
             data={activeData}
-            onToggleTodo={(i) => updateActiveData({ ...activeData, items: activeData.items.map((t: any, idx: number) => (idx === i ? { ...t, done: !t.done } : t)) })}
-            onEditTodo={(i, text) => updateActiveData({ ...activeData, items: activeData.items.map((t: any, idx: number) => (idx === i ? { ...t, task: text } : t)) })}
-            onAddTodo={() => updateActiveData({ ...activeData, items: [...activeData.items, { task: "", done: false }] })}
-            onDeleteTodo={(i) => updateActiveData({ ...activeData, items: activeData.items.filter((_: any, idx: number) => idx !== i) })}
+            onToggleTodo={(i) =>
+              updateActiveData({
+                ...activeData,
+                items: activeData.items.map((t: any, idx: number) =>
+                  idx === i ? { ...t, done: !t.done } : t
+                ),
+              })
+            }
+            onEditTodo={(i, text) =>
+              updateActiveData({
+                ...activeData,
+                items: activeData.items.map((t: any, idx: number) =>
+                  idx === i ? { ...t, task: text } : t
+                ),
+              })
+            }
+            onAddTodo={() =>
+              updateActiveData({
+                ...activeData,
+                items: [...activeData.items, { task: "", done: false }],
+              })
+            }
+            onDeleteTodo={(i) =>
+              updateActiveData({
+                ...activeData,
+                items: activeData.items.filter(
+                  (_: any, idx: number) => idx !== i
+                ),
+              })
+            }
           />
         );
       case "document":
@@ -352,11 +498,20 @@ const HomePage: React.FC = () => {
       case "journal":
         return <JournalView data={activeData} />;
       default:
-        return <div className="flex items-center justify-center flex-1 text-gray-400">Unsupported file type: {activeData.type}</div>;
+        return (
+          <div className="flex items-center justify-center flex-1 text-gray-400">
+            Unsupported file type: {activeData.type}
+          </div>
+        );
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-[#191919] text-gray-400">Loading JSON files...</div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#191919] text-gray-400">
+        Loading JSON files...
+      </div>
+    );
 
   return (
     <div className="flex h-screen bg-[#191919] text-gray-200 font-sans overflow-hidden">
@@ -370,11 +525,30 @@ const HomePage: React.FC = () => {
         onDeleteFile={requestFileDelete}
       />
 
-      <main className="flex-1 flex flex-col overflow-y-auto">{renderView()}</main>
+      <main className="flex-1 flex flex-col overflow-y-auto">
+        {renderView()}
+      </main>
 
-      {showModal && <FileModal onClose={() => setShowModal(false)} onCreated={() => { setShowModal(false); loadDataFiles(); }} />}
+      {showModal && (
+        <FileModal
+          onClose={() => setShowModal(false)}
+          onCreated={() => {
+            setShowModal(false);
+            loadDataFiles();
+          }}
+        />
+      )}
 
-      {showDeleteModal && fileToDelete && <DeleteModal fileName={fileToDelete} onConfirm={confirmDeleteFile} onCancel={() => { setShowDeleteModal(false); setFileToDelete(null); }} />}
+      {showDeleteModal && fileToDelete && (
+        <DeleteModal
+          fileName={fileToDelete}
+          onConfirm={confirmDeleteFile}
+          onCancel={() => {
+            setShowDeleteModal(false);
+            setFileToDelete(null);
+          }}
+        />
+      )}
 
       {/* Profile modal */}
       <ProfileModal

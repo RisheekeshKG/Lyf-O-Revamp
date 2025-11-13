@@ -305,6 +305,55 @@ def validate_and_fix_content(parsed: Dict[str,Any]) -> Dict[str,Any]:
         return {"name": parsed.get("name","Untitled Habit"), "type":"habit", "items": fixed}
     # fallback: pass-through
     return parsed
+class EnhanceReq(BaseModel):
+    template: Dict[str, Any]
+    user_profile: Optional[Dict[str, Any]] = None
+
+@app.post("/chat/enhance")
+async def enhance_template(payload: dict):
+    template = payload.get("template")
+    user_profile = payload.get("user_profile")
+
+    if not template:
+        raise HTTPException(status_code=400, detail="Missing template.")
+
+    # Use llm_content to rewrite template based on the user's profile
+    enhance_prompt = PromptTemplate(
+        input_variables=["template", "profile"],
+        template=(
+            "You are an assistant that enhances a JSON template using a user's profile.\n"
+            "Return ONLY valid JSON with **no trailing commas**, **no ...**, **no comments**, "
+            "and the exact same structure as the input template.\n\n"
+            "Input template:\n{template}\n\n"
+            "User profile:\n{profile}\n\n"
+            "Rules:\n"
+            "1. KEEP the same keys: name, type, columns, values, items, etc.\n"
+            "2. NEVER add unknown keys.\n"
+            "3. ONLY modify the rows/items to be personalized.\n"
+            "4. Return only JSON — no explanation.\n"
+        )
+    )
+
+    chain = LLMChain(llm=llm_content, prompt=enhance_prompt)
+
+    raw = chain.run({
+        "template": json.dumps(template),
+        "profile": json.dumps(user_profile or {})
+    })
+
+    # Extract JSON object only
+    match = re.search(r"\{[\s\S]*\}", raw)
+    if not match:
+        raise HTTPException(status_code=500, detail="Invalid JSON returned")
+
+    cleaned = match.group(0)
+
+    try:
+        enhanced = json.loads(cleaned)
+    except:
+        raise HTTPException(status_code=500, detail="JSON parsing failed")
+
+    return {"enhanced": enhanced}
 
 # ==========================================================
 # Tools
